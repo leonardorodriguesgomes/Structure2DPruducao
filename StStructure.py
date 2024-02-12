@@ -357,7 +357,6 @@ variaveis_sistema = [i for i in q if isinstance(i, sp.Symbol)] + [
 # Resolução do sistema
 sistema = K * q - S
 resolucao = sp.solve(sistema, variaveis_sistema)
-Ke_
 
 
 lista_Ke_ = []
@@ -388,14 +387,52 @@ def Esforco_barra(numero_da_barra):
             qnapoios.append('q'+str(3*noq+2))
         if apoios[i][3]:
             qnapoios.append('q'+str(3*noq+3))
-
+    
+     
     nob1 = barras[n][0]
     nob2 = barras[n][1]
     thetab = barras[n][6]
     cb = sp.cos(thetab)
     sb = sp.sin(thetab)
+    COS = cb
+    SIN = sb
 
+    #Encontrando o valor das forças aplicadas a cada nó
+    Snforcas = []
+    S1b = 0
+    S2b = 0
+    S3b = 0
+    S4b = 0
+    S5b = 0
+    S6b = 0
+    for i in range(len(forcas)):
+        nof = forcas[i][0]
+        ForcaX = forcas[i][1]
+        ForcaY = forcas[i][2]
+        momento = forcas[i][3]
+        if (nob1 == nof):
+            S1b = ForcaX
+            S2b = ForcaY
+            S3b = momento
+        if (nob2 == nof):
+            S4b = ForcaX
+            S5b = ForcaY
+            S6b = momento
+    
+    Sb = sp.Matrix([S1b,S2b,S3b,S4b,S5b,S6b])
+    #definindo forças locais aplicadas na barra
+    Tb =  sp.Matrix(
+    [
+        [COS, -SIN, 0, 0, 0, 0],
+        [SIN, COS, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 0],
+        [0, 0, 0, COS, -SIN, 0],
+        [0, 0, 0, SIN, COS, 0],
+        [0, 0, 0, 0, 0, 1],
+    ])
+    Sb_ = Tb*Sb
 
+    #Definindo a nomenclatura de cada deslocamento q para os nós da barra escolhida
     U1 = ("q" + str(3*nob1+1))
     U2 = ("q" + str(3*nob1+2))
     U3 = ("q" + str(3*nob1+3))
@@ -475,14 +512,86 @@ def Esforco_barra(numero_da_barra):
     u_5 = ub_local[sp.symbols('u5')]
     u_6 = ub_local[sp.symbols('u6')]
     ub_ = sp.Matrix([u_1,u_2,u_3,u_4,u_5,u_6])
-    S1,S2,S3,S4,S5,S6 = 'S1','S2','S3','S4','S5','S6'
-    S_ = sp.Matrix([S1,S2,S3,S4,S5,S6])
-    sistema3 = Kl*ub_-S_
-    Esforcos = sp.solve(sistema3,[S1,S2,S3,S4,S5,S6])
-    Esforcos1 = str(Esforcos)
-    return Esforcos1
- 
+    S1b_,S2b_,S3b_,S4b_,S5b_,S6b_ = 'S1b_','S2b_','S3b_','S4b_','S5b_','S6b_'
+    S_ = sp.Matrix([S1b_,S2b_,S3b_,S4b_,S5b_,S6b_])
+    sistema3 = Kl*ub_-S_+Sb_
+    Esforcos = sp.solve(sistema3,[S1b_,S2b_,S3b_,S4b_,S5b_,S6b_])
 
+    S1_ = Esforcos[sp.symbols(S1b_)]
+    S2_ = -Esforcos[sp.symbols(S2b_)]
+    S3_ = Esforcos[sp.symbols(S3b_)]
+    S4_ = Esforcos[sp.symbols(S4b_)]
+    S5_ = Esforcos[sp.symbols(S5b_)]
+    S6_ = -Esforcos[sp.symbols(S6b_)]
+    q1_ =u_1
+    q2_ =u_2
+    q3_ =u_3
+    q4_ =u_4
+    q5_ =u_5
+    q6_ =u_6
+    results = sp.Matrix([S1_,S2_,S3_,S4_,S5_,S6_,q1_,q2_,q3_,q4_,q5_,q6_])
+    return results
+
+def Momento_Fletor(E_,I_,L_,M_0,M_3,q_2,q_3,q_5,q_6,xm_):
+    
+    x = sp.symbols('x')
+    E = E_
+    I = I_
+    L = L_
+
+
+    a = sp.Matrix([[0,0,2,6*x]])
+    b = sp.Matrix([
+        [1,0,0,0],
+        [0,1,0,0],
+        [-3/(L**2),-2/L,3/(L**2),-1/L],
+        [2/(L**3),1/(L**2),-2/(L**3),1/(L**2)]
+    ])
+
+    N2x = a*b
+
+    x0 = 0
+    x3 = L
+    x1 = (L/2)*(1-1/(3**0.5))
+    x2 = L+((L/2)*(1/(3**0.5)))
+
+
+    q2=q_2
+    q3=q_3
+    q5=q_5
+    q6=q_6
+    d_nodais = sp.Matrix([q2,q3,q5,q6])
+
+    d_interno = N2x*d_nodais
+
+    y1 = d_interno.subs(x,x1)
+    y2 = d_interno.subs(x,x2)
+
+    M0 = M_0
+    M3 = M_3
+
+    M1 = y1*E*I
+    M2 = y2*E*I
+
+    fx0 = M0
+    fx1 = M1[0]
+    fx2 = M2[0]
+    fx3 = M3
+
+    fx0x1 = (fx1-fx0)/(x1-x0)
+    fx1x3 = (fx3-fx1)/(x3-x1)
+    fx0x1x3 = (fx1x3-fx0x1)/(x3-x0)
+
+    d0 = fx0
+    d1 = fx0x1
+    d2 = fx0x1x3
+
+    eq = d0 + d1*(x-x0) + d2*(x-x0)*(x-x1)
+
+    xm = xm_
+    a = eq.subs(x,xm)
+
+    return a
 
 if st.button('Calcular'): 
     resultado = str(resolucao)
@@ -491,11 +600,33 @@ if st.button('Calcular'):
 
 n_barra = 0
 n_barra = st.number_input('Insira uma barra para calcular os esforços',0)
+x_barra = 5
+#x_barra = st.number_input('Escolha um ponto da barra para calcular o momento',0.00)
+x_barra = st.slider('Escolha um ponto x da barra para calcular o momento', 0.00, barras[n_barra][5], 0.00)
+
 
 if st.button('Esforços Barra'):
     Esforco_na_barra = Esforco_barra(n_barra)
     st.header('Os esforços na barra são:')
-    st.write(Esforco_na_barra)
+    st.subheader('Axial Nó 1')
+    st.write (Esforco_na_barra[0])
+    st.subheader('Axial Nó 2')
+    st.write (Esforco_na_barra[3])
+    st.subheader('Cortante Nó 1')
+    st.write (Esforco_na_barra[1])
+    st.subheader('Cortante Nó 2')
+    st.write (Esforco_na_barra[4])
+    st.subheader('Momento Nó 1')
+    st.write (Esforco_na_barra[2])
+    st.subheader('Momento Nó 2')
+    st.write (Esforco_na_barra[5])
+    Ib = barras[n_barra][2]
+    Eb = barras[n_barra][3]
+    Lb = barras[n_barra][5]
+    Momento_em_x = Momento_Fletor(Eb,Ib,Lb,Esforco_na_barra[2],Esforco_na_barra[5],Esforco_na_barra[7],Esforco_na_barra[8],Esforco_na_barra[10],Esforco_na_barra[11],x_barra)
+    st.subheader('O momento em para o valor de x informado é')
+    st.write(Momento_em_x)
+
 
 
 
